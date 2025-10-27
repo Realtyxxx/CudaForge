@@ -27,3 +27,16 @@ nvcc --version
 ncu --version
 ```
 If either command is not found or versions are mismatched, please reinstall or update your CUDA Toolkit and Nsight Compute accordingly.
+## 🔒 Permission Setup for Nsight Compute
+Nsight Compute (ncu) requires elevated privileges to access GPU performance counters.
+Please ensure that you have sudo or root privileges on the system.
+
+If you need to enable password-less sudo for profiling commands, you can configure it as follows:
+```
+sudo visudo
+```
+Then add the following line (replace <username> with your actual user name):
+```
+<username> ALL=(ALL) NOPASSWD: ALL
+```
+After this setup, you can run profiling commands such as sudo ncu without being prompted for a password.
