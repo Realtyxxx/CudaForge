@@ -42,3 +42,14 @@ Then add the following line (replace <username> with your actual user name):
 After this setup, you can run profiling commands such as sudo ncu without being prompted for a password.
 
 ## 🚀 Run
+Testing multiple tasks：
+```bash
+python3 main.py KernelBench/level1  --first_n 100  --gpu "GPU Name"   --server_type openai   --model_name o3   --device 0   --round 10   --subproc_id 0
+
+```
+
+Testing single task：
+```bash
+python3 main.py KernelBench/level1/1_Square_matrix_multiplication_.py  --gpu "Quadro RTX 6000"   --server_type openai   --model_name o3   --device 0   --round 10   --subproc_id 0
+
+```
