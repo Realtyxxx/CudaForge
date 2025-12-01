@@ -36,26 +36,37 @@ FEWSHOT_NEW = ROOT / "prompts/few_shot/model_new_ex_add.py"  # optimised ModelNe
 # ---------------------------------------------------------------------------
 # Prompt template (with diversity requirement)
 # ---------------------------------------------------------------------------
-test = Template(
+SEED_PROMPT_TEMPLATE = Template(
     dedent(
-        """ 
-You write custom CUDA kernels to replace the pytorch operators in the given architecture 
-to get speedups.You have complete freedom to choose the set of operators you want to replace. You may
-make the decision to replace some operators with custom CUDA kernels and leave others
-unchanged. You may replace multiple operators with custom implementations, consider
-operator fusion opportunities (combining multiple operators into a single kernel, for
-example, combining matmul+relu), or algorithmic changes (such as online softmax). You are
-only limited by your imagination.
+        """
+You write custom CUDA kernels to replace the PyTorch operators in the given architecture
+to get speedups. You have complete freedom to choose the set of operators you want to replace.
+You may replace multiple operators with custom implementations, consider operator fusion
+opportunities (for example, combining matmul+relu), or algorithmic changes (such as online
+softmax). You are only limited by your imagination.
 
-Here\’s an example to show you the syntax of inline embedding custom CUDA operators in torch: 
+Target GPU
+==========
+GPU Name: $gpu_name
+Architecture: $gpu_arch
+Details:
+$gpu_items
+
+GPU glossary (quick reference):
+$gpu_definitions
+
+GPU‑architecture best practices to respect:
+$gpu_best_practices
+
+Here’s an example to show you the syntax of inline embedding custom CUDA operators in torch:
 The example given architecture is:
-‘‘‘
+```
 $few_base
-‘‘‘
+```
 The example new arch with custom CUDA kernels looks like this:
-‘‘‘
+```
 $few_new
-‘‘‘
+```
 
 You are given the following architecture:
 ```python
@@ -132,8 +143,8 @@ output the code within:
 # GPU spec loader
 # ---------------------------------------------------------------------------
 
-def _load_gpu_spec() -> dict:  # noqa: D401
-    """Import `gpu_specs.py` and return the GPU_SPEC_INFO dict (robust across Python versions)."""
+def _load_gpu_spec() -> tuple[dict, dict, list[str]]:  # noqa: D401
+    """Import `gpu_specs.py` and return all GPU metadata (robust across Python versions)."""
     spec = importlib.util.spec_from_file_location("gpu_specs", HW_FILE)
     if spec is None or spec.loader is None:
         raise ImportError(f"Cannot load spec for {HW_FILE}")
@@ -141,9 +152,14 @@ def _load_gpu_spec() -> dict:  # noqa: D401
     module = importlib.util.module_from_spec(spec)
     sys.modules["gpu_specs"] = module  # avoid re‑import
     spec.loader.exec_module(module)  # type: ignore[attr-defined]
-    if not hasattr(module, "GPU_SPEC_INFO"):
-        raise AttributeError("GPU_SPEC_INFO not defined in gpu_specs.py")
-    return module.GPU_SPEC_INFO  # type: ignore[attr-defined]
+    for attr in ("GPU_SPEC_INFO", "GPU_DEFINITIONS", "GPU_BEST_PRACTICES"):
+        if not hasattr(module, attr):
+            raise AttributeError(f"{attr} not defined in gpu_specs.py")
+    return (
+        module.GPU_SPEC_INFO,  # type: ignore[attr-defined]
+        module.GPU_DEFINITIONS,  # type: ignore[attr-defined]
+        module.GPU_BEST_PRACTICES,  # type: ignore[attr-defined]
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -155,7 +171,7 @@ def build_seed_prompt(
     gpu_name: str | None = None,
 ) -> str:
     """Build LLM prompt for CUDA‑kernel optimisation (seed generation)."""
-    gpu_info = _load_gpu_spec()
+    gpu_spec, gpu_definitions, gpu_best_practices = _load_gpu_spec()
 
     # Auto‑detect GPU if not provided
     if gpu_name is None:
@@ -165,20 +181,29 @@ def build_seed_prompt(
         except Exception as exc:  # pragma: no cover
             raise RuntimeError("CUDA device not found – pass --gpu <name>.") from exc
 
-    if gpu_name not in gpu_info:
+    if gpu_name not in gpu_spec:
         raise KeyError(f"{gpu_name} not present in GPU_SPEC_INFO")
 
-    info = gpu_info[gpu_name]
+    info = gpu_spec[gpu_name]
     gpu_arch = info.get("GPU Architecture", "Unknown")
     gpu_items = "\n".join(
         f"• {k}: {v}" for k, v in info.items() if k != "GPU Architecture"
     )
+    gpu_reference = "\n".join(
+        f"• {term}: {definition}" for term, definition in gpu_definitions.items()
+    )
+    gpu_best = "\n".join(f"• {item}" for item in gpu_best_practices)
 
     few_base = FEWSHOT_BASE.read_text().strip()
     few_new = FEWSHOT_NEW.read_text().strip()
     arch_src = Path(arch_path).read_text().strip()
 
-    return test.substitute(
+    return SEED_PROMPT_TEMPLATE.substitute(
+        gpu_name=gpu_name,
+        gpu_arch=gpu_arch,
+        gpu_items=gpu_items,
+        gpu_definitions=gpu_reference,
+        gpu_best_practices=gpu_best,
         few_base=few_base,
         few_new=few_new,
         arch_src=arch_src,
@@ -199,7 +224,7 @@ def _cli() -> None:  # noqa: D401
     parser.add_argument("-o", "--out", help="Save prompt to file")
     args = parser.parse_args()
 
-    prompt = build_prompt(Path(args.model_py), args.gpu)
+    prompt = build_seed_prompt(Path(args.model_py), args.gpu)
 
     if args.out:
         Path(args.out).write_text(prompt)
