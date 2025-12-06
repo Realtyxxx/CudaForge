@@ -20,9 +20,9 @@ class KernelIndividual:
         return {"id": self.id, "score": self.score}
 
     def save_code(self, out_dir: Path) -> Path:
-        """Save as .py (for dynamic import by compare_and_bench)"""
+        """Save generated kernel source as .cu."""
         out_dir.mkdir(parents=True, exist_ok=True)
-        file_path = out_dir / f"kernel_{self.id:04d}.py"   # ← Changed to .py
+        file_path = out_dir / f"kernel_{self.id:04d}.cu"
         file_path.write_text(self.code, encoding="utf-8")
         self.code_path = file_path
         return file_path

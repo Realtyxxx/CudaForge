@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional, Mapping, Any
 from string import Template
+import json
 
 # Project roots (adjust if your tree differs)
 ROOT = Path(__file__).resolve().parents[1]  # project root

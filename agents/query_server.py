@@ -6,11 +6,24 @@ from utils.print_utils import print_bold
 TOGETHER_KEY = os.environ.get("TOGETHER_API_KEY")
 DEEPSEEK_KEY = os.environ.get("DEEPSEEK_API_KEY")
 OPENAI_KEY = os.environ.get("OPENAI_API_KEY")
+GLM_KEY = os.environ.get("GLM_API_KEY")
+KIMI_API_KEY = os.environ.get("KIMI_API_KEY")
+KIMI_API_ENDPOINT = os.environ.get("KIMI_API_ENDPOINT")
+
 GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
 SGLANG_KEY = os.environ.get("SGLANG_API_KEY")
 ANTHROPIC_KEY = os.environ.get("ANTHROPIC_API_KEY")
 SAMBANOVA_API_KEY = os.environ.get("SAMBANOVA_API_KEY")
 FIREWORKS_API_KEY = os.environ.get("FIREWORKS_API_KEY")
+DOUBAO_API_KEY = os.environ.get("DOUBAO_API_KEY")
+DOUBAO_API_BASE = os.environ.get("DOUBAO_API_BASE")
+
+YUNWU_OPENAI_CODEX_API_KEY = os.environ.get("YUNWU_OPENAI_CODEX_API_KEY")
+YUNWU_OPENAI_API_KEY = os.environ.get("YUNWU_OPENAI_API_KEY")
+YUNWU_CLAUDE_API_KEY = os.environ.get("YUNWU_CLAUDE_API_KEY")
+YUNWU_DEFAULT_API_KEY = os.environ.get("YUNWU_DEFAULT_API_KEY")
+YUNWU_API_BASE = os.environ.get("YUNWU_API_BASE")
+
 from typing import Optional
 
 
@@ -33,13 +46,15 @@ def colorize_finish_reason(reason: Optional[str]) -> str:
     color = colors.get(reason, "\033[90m")  # Default to grey
     return f"{color}Finish reason: {reason}{reset_color}"
 
+
 def query_server(
     prompt: str | list[dict],
     system_prompt: str = "You are a helpful assistant",
     temperature: float = 0.0,
     top_p: float = 1.0,
     top_k: int = 50,
-    max_tokens: int = 128,
+    # max_tokens: int = 128,
+    max_tokens: int = 16384,
     num_completions: int = 1,
     server_port: int = 30000,
     server_address: str = "localhost",
@@ -112,6 +127,55 @@ def query_server(
             client = OpenAI(api_key=OPENAI_KEY)
             model = model_name
 
+        case "glm":
+            # from openai import OpenAI
+            # client = OpenAI(api_key=GLM_KEY, base_url="https://open.bigmodel.cn/api/paas/v4/")
+            import anthropic
+            client = anthropic.Anthropic(
+                api_key=GLM_KEY,
+                base_url="https://open.bigmodel.cn/api/anthropic"  # 配置智谱 base_url
+            )
+            model = model_name
+        case "kimi":
+            import anthropic
+            client = anthropic.Anthropic(
+                api_key=KIMI_API_KEY,
+                base_url=KIMI_API_ENDPOINT
+            )
+            model = model_name
+        case "doubao":
+            from openai import OpenAI
+
+            client = OpenAI(
+                api_key=DOUBAO_API_KEY,
+                base_url=DOUBAO_API_BASE,
+                timeout=10000000,
+                max_retries=3,
+            )
+            model = model_name
+        case "yunwu":
+            print("yunwu : ", end="")
+            from openai import OpenAI
+            if "claude" in model_name:
+                print_bold(f"claude {model_name}")
+                YUNWU_API_KEY = YUNWU_CLAUDE_API_KEY
+            elif "codex" in model_name:
+                print_bold(f"codex {model_name}")
+                YUNWU_API_KEY = YUNWU_OPENAI_CODEX_API_KEY
+            elif "gpt" in model_name:
+                print_bold(f"gpt {model_name}")
+                YUNWU_API_KEY = YUNWU_OPENAI_API_KEY
+            else:
+                print_bold(f"default  {model_name}")
+                YUNWU_API_KEY = YUNWU_DEFAULT_API_KEY
+
+            client = OpenAI(
+                api_key=YUNWU_API_KEY,
+                base_url=YUNWU_API_BASE,
+                timeout=10000000,
+                max_retries=3,
+            )
+            model = model_name
         case _:
             raise NotImplementedError(f"Unsupported server_type: {server_type}")
 
@@ -126,7 +190,7 @@ def query_server(
         )
 
         output = llm.chat(
-            system_prompt,         
+            system_prompt,
             prompt,
             cfg,
         )
@@ -186,7 +250,8 @@ def query_server(
 
         return response.text
 
-    elif server_type == "anthropic":
+        # elif server_type == "anthropic" or server_type == "glm" or server_type == "kimi":
+    elif server_type in ["anthropic", "glm", "kimi"]:
         assert isinstance(prompt, str)
         if is_reasoning_model:
             response = client.beta.messages.create(
@@ -207,7 +272,8 @@ def query_server(
                 top_k=top_k,
                 max_tokens=max_tokens,
             )
-        # Usage Logging
+
+        # 在这里添加查看 Token 的代码
         if hasattr(response, 'usage'):
             input_tokens = getattr(response.usage, "input_tokens", None)
             output_tokens = getattr(response.usage, "output_tokens", None)
@@ -248,7 +314,7 @@ def query_server(
         if finish_reason in {"length", "max_tokens"}:
             print(f"Warning: Output truncated due to max_tokens limit ({max_tokens})")
 
-    else:
+    elif server_type in ["sglang", "deepseek", "fireworks", "together", "sambanova", "openai", "doubao", "yunwu"]:
         if isinstance(prompt, str):
             messages = [
                 {"role": "system", "content": system_prompt},

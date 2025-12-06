@@ -70,12 +70,12 @@ def extract_code_block(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 def save_kernel_code(code: str, out_dir: Path | str = "kernels") -> Path:
-    """Save *code* to *out_dir/kernel_YYYYmmdd_HHMMSS.py* and return the path."""
+    """Save *code* to *out_dir/kernel_YYYYmmdd_HHMMSS.cu* and return the path."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     stamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
-    path = out_dir / f"kernel_{stamp}.py"
+    path = out_dir / f"kernel_{stamp}.cu"
     path.write_text(code, encoding="utf-8")
 
     return path

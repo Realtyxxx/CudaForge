@@ -4,3 +4,19 @@ run/
 .vscode/
 
 __pycache__/
+
+llm_chat_scripts/
+sh-files/
+.codex/
+.specify/
+.agent/
+.promptx/
+*.so
+run-record
+CudaKernelBench.backup
+contexts/
+*.backup
+
+AGENTS.md
+CLAUDE.md
+GEMINI.md

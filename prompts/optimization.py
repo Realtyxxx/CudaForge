@@ -2,6 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional, Mapping, Any
 from string import Template
+import json
 
 ROOT = Path(__file__).resolve().parents[1]  # project root
 HW_FILE = ROOT / "prompts/hardware/gpu_specs.py"
@@ -86,7 +87,7 @@ def build_optimization_prompt(
     history_block: str = "",
     optimization_suggestion: Optional[Any] = None,
 ) -> str:
-    """Build LLM prompt for CUDA-kernel optimisation (optimization phase)."""
+    """Build LLM prompt for CUDA-kernel optimization (optimization phase)."""
     gpu_info = _load_gpu_spec()
 
     if gpu_name is None:
